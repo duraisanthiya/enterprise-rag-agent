@@ -1,21 +1,15 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 import pytest
 from httpx import AsyncClient
 from app.core.exceptions import VectorStoreUnavailableError
 
 @pytest.mark.asyncio
 async def test_vector_store_error_returns_clean_503(async_client: AsyncClient):
-    """Simulate a database failure and verify the global handler intercepts it cleanly."""
-    with (
-        patch(
-            "app.api.v1.endpoints.query.get_qdrant_client",
-            return_value=MagicMock(),
-        ),
-        patch(
-            "app.api.v1.endpoints.query.hybrid_search",
-            side_effect=VectorStoreUnavailableError(
-                "Connection to Qdrant timed out."
-            ),
+    """Simulate a failure during agent execution and verify the global handler intercepts it cleanly."""
+    with patch(
+        "app.api.v1.endpoints.query.agent_app.ainvoke",
+        side_effect=VectorStoreUnavailableError(
+            "Connection to Qdrant timed out."
         ),
     ):
         response = await async_client.post(

@@ -1,10 +1,9 @@
 from fastapi import APIRouter, status
 from fastapi.responses import StreamingResponse
-from app.core.qdrant import get_qdrant_client
 from app.schemas.rag import QueryRequest
-from app.services.retrieval.reranker import rerank_documents
-from app.services.retrieval.search import hybrid_search
-from app.services.streaming import stream_rag_response
+from app.services.agent.graph import agent_app
+from app.services.agent.state import AgentState
+from app.services.streaming import stream_agent_execution
 
 router = APIRouter()
 
@@ -14,30 +13,28 @@ router = APIRouter()
     summary="Query the RAG Agent",
 )
 async def query_rag(request: QueryRequest) -> StreamingResponse:
-    """Executes Two-Stage Hybrid Retrieval (Dense HNSW + Sparse BM25 + Reranking)
+    """Executes the LangGraph Corrective RAG Agent workflow
 
-    and streams results via Server-Sent Events.
+    (Retrieve -> Grade -> Self-Correct -> Synthesize) and streams live SSE
+    events.
     """
-    client = get_qdrant_client()
+    # 1. Initialize Graph State
+    initial_state: AgentState = {
+        "original_query": request.query,
+        "current_query": request.query,
+        "documents": [],
+        "context_quality": "pending",
+        "retry_count": 0,
+        "max_retries": 2,
+        "generation": None,
+    }
 
-    # Stage 1: Hybrid Search with RRF (retrieve candidates)
-    candidates = await hybrid_search(
-        client=client,
-        query_text=request.query,
-        top_k=request.top_k * 2,
-        filter_conditions=request.metadata_filters,
-    )
+    # 2. Execute the compiled LangGraph Agent state machine
+    final_state = await agent_app.ainvoke(initial_state)
 
-    # Stage 2: Cross-Encoder Reranking (refine to top_k)
-    final_docs = rerank_documents(
-        query=request.query,
-        candidates=candidates,
-        top_n=request.top_k,
-    )
-
-    # Return SSE stream
+    # 3. Stream agent execution steps and tokens
     return StreamingResponse(
-        stream_rag_response(query=request.query, retrieved_docs=final_docs),
+        stream_agent_execution(final_state),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
