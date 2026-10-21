@@ -22,6 +22,17 @@ class Settings(BaseSettings):
         case_sensitive=True,
         extra="ignore",
     )
-
+    
+    # Observability & Tracing (Langfuse)
+    LANGFUSE_PUBLIC_KEY: str | None = Field(
+        default=None, description="Langfuse public key"
+    )
+    LANGFUSE_SECRET_KEY: str | None = Field(
+        default=None, description="Langfuse secret key"
+    )
+    LANGFUSE_HOST: str = Field(
+        default="https://cloud.langfuse.com",
+        description="Langfuse telemetry host",
+    )
 
 settings = Settings()
