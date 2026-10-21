@@ -10,3 +10,19 @@ services:
       - ./qdrant_storage:/qdrant/storage
     environment:
       - QDRANT__SERVICE__ENABLE_STATIC_CONTENT=true
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: enterprise_rag_api
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - qdrant
+    environment:
+      - ENVIRONMENT=production
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-dummy-key}
