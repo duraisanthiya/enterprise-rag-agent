@@ -6,14 +6,27 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.exceptions import EnterpriseRAGException
 from app.core.middleware import RequestTracingMiddleware
+from app.core.qdrant import close_qdrant, init_qdrant  # 1. Import Qdrant
 from app.schemas.errors import ErrorResponse
+from app.services.retrieval.collection import setup_hybrid_collection
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    print(f"🚀 Starting up {settings.PROJECT_NAME} in [{settings.ENVIRONMENT}] mode...")
+    print(
+        f"🚀 Starting up {settings.PROJECT_NAME} in [{settings.ENVIRONMENT}] mode..."
+    )
+
+    qdrant_client = await init_qdrant()
+    print("✅ Connected to Qdrant Vector Database")
+
+    await setup_hybrid_collection(qdrant_client)
+
     yield
+
     print("🛑 Shutting down gracefully...")
+    await close_qdrant()
+    print("✅ Qdrant connection closed")
 
 
 def create_application() -> FastAPI:
